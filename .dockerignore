@@ -1,0 +1,33 @@
+# Dependencies (installed inside container)
+/vendor/
+/node_modules/
+
+# Git
+/.git/
+.gitignore
+
+# Environment files (never in image)
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+/public/build/
+/public/hot
+
+# Logs
+/storage/logs/
+*.log
+
+# Test artifacts
+/.phpunit.cache/
+.phpunit.result.cache
+
+# IDE / editor
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Compiled PHP cache
+/bootstrap/cache/*.php
