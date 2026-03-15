@@ -136,7 +136,7 @@ make k6
 
 ## Environment Variables
 
-See `[.env.example](.env.example)` for all available configuration options.
+See `.env.example` for all available configuration options.
 
 Key variables:
 
