@@ -33,8 +33,8 @@ class MessageController extends Controller
 
         return view('messages.show', [
             'recipient' => $user,
-            'messages'  => $messages,
-            'authUser'  => $authUser,
+            'messages' => $messages,
+            'authUser' => $authUser,
         ]);
     }
 
@@ -51,7 +51,7 @@ class MessageController extends Controller
 
         if ($request->expectsJson()) {
             return response()->json([
-                'id'         => $message->id,
+                'id' => $message->id,
                 'created_at' => $message->created_at->toIso8601String(),
             ]);
         }

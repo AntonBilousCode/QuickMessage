@@ -25,8 +25,8 @@ class RegisterController extends Controller
     public function store(RegisterRequest $request): RedirectResponse
     {
         $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
+            'name' => $request->name,
+            'email' => $request->email,
             'password' => $request->password,
         ]);
 
