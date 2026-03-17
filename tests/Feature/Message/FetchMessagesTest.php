@@ -114,4 +114,56 @@ class FetchMessagesTest extends TestCase
         $response->assertSee('Alice to Bob');
         $response->assertDontSee('Charlie to Alice — should not appear');
     }
+
+    public function test_mark_read_endpoint_marks_messages_as_read(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+
+        Message::factory()->count(3)->unread()->create([
+            'sender_id' => $bob->id,
+            'receiver_id' => $alice->id,
+        ]);
+
+        $response = $this->actingAs($alice)->postJson("/messages/{$bob->id}/read");
+
+        $response->assertOk()->assertJson(['ok' => true]);
+
+        $this->assertDatabaseMissing('messages', [
+            'sender_id' => $bob->id,
+            'receiver_id' => $alice->id,
+            'read_at' => null,
+        ]);
+    }
+
+    public function test_unread_endpoint_returns_correct_count(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+
+        Message::factory()->count(4)->unread()->create([
+            'sender_id' => $bob->id,
+            'receiver_id' => $alice->id,
+        ]);
+
+        // Already-read message should not be counted
+        Message::factory()->create([
+            'sender_id' => $bob->id,
+            'receiver_id' => $alice->id,
+            'read_at' => now(),
+        ]);
+
+        $response = $this->actingAs($alice)->getJson('/messages/unread');
+
+        $response->assertOk()->assertJson(['count' => 4]);
+    }
+
+    public function test_unread_endpoint_returns_zero_when_no_unread_messages(): void
+    {
+        $alice = User::factory()->create();
+
+        $response = $this->actingAs($alice)->getJson('/messages/unread');
+
+        $response->assertOk()->assertJson(['count' => 0]);
+    }
 }

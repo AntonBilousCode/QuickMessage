@@ -6,7 +6,18 @@
 <div class="chat-page">
     <div class="container">
         {{-- Single Alpine component wrapping both messages and input --}}
-        <div class="chat-card" x-data="chatApp()">
+        <div class="chat-card" x-data="chatApp({{ Js::from($messages->map(fn ($m) => [
+            'message' => [
+                'id'           => $m->id,
+                'body'         => $m->body,
+                'created_at'   => $m->created_at->toIso8601String(),
+                'is_encrypted' => $m->is_encrypted,
+            ],
+            'sender' => [
+                'id'   => $m->sender_id,
+                'name' => $m->sender?->name ?? '',
+            ],
+        ])) }}, '{{ $encryptionMode }}')">
 
             {{-- Chat header --}}
             <div class="chat-header">
@@ -16,23 +27,35 @@
                 </div>
                 <span class="chat-header-name">{{ $recipient->name }}</span>
                 <span class="ws-status" id="recipient-status" title="Offline"></span>
+                @if($encryptionMode === 'e2ee')
+                    <span title="End-to-end encrypted" style="font-size:.8rem;color:#166534;background:#dcfce7;padding:.15rem .5rem;border-radius:999px">🔒 E2EE</span>
+                @else
+                    <span title="Standard encryption" style="font-size:.8rem;color:#6b7280;background:#f3f4f6;padding:.15rem .5rem;border-radius:999px">🔓 Standard</span>
+                @endif
+            </div>
+
+            {{-- Decryption loading state --}}
+            <div x-show="loading" style="text-align:center;padding:1rem;color:#6b7280;font-size:.9rem">
+                Decrypting messages...
             </div>
 
             {{-- Messages list --}}
-            <div id="chat-messages" class="chat-messages">
-                {{-- Pre-loaded messages from DB --}}
-                @forelse ($messages as $message)
-                    <div class="msg-row {{ $message->sender_id === $authUser->id ? 'mine' : 'theirs' }}">
-                        <div class="message-bubble {{ $message->sender_id === $authUser->id ? 'mine' : 'theirs' }}">
-                            {!! nl2br(e($message->body)) !!}
-                            <div class="message-meta">{{ $message->created_at->format('H:i') }}</div>
+            <div id="chat-messages" class="chat-messages" x-show="!loading">
+                {{-- Pre-loaded messages rendered via Alpine for unified E2EE/standard path --}}
+                <template x-if="initialMessages.length === 0 && newMessages.length === 0">
+                    <p class="text-muted text-center" id="empty-state" style="margin:auto">No messages yet. Say hi! 👋</p>
+                </template>
+
+                <template x-for="msg in initialMessages" :key="'init-' + msg.message.id">
+                    <div class="msg-row" :class="parseInt(msg.sender.id) === {{ $authUser->id }} ? 'mine' : 'theirs'">
+                        <div class="message-bubble" :class="parseInt(msg.sender.id) === {{ $authUser->id }} ? 'mine' : 'theirs'">
+                            <span x-html="nl2br(msg.message.body)"></span>
+                            <div class="message-meta" x-text="formatTime(msg.message.created_at)"></div>
                         </div>
                     </div>
-                @empty
-                    <p class="text-muted text-center" id="empty-state" style="margin:auto">No messages yet. Say hi! 👋</p>
-                @endforelse
+                </template>
 
-                {{-- Dynamically appended messages (via Alpine) --}}
+                {{-- Dynamically appended messages (via Alpine / WebSocket) --}}
                 <template x-for="msg in newMessages" :key="msg.message.id">
                     <div class="msg-row" :class="parseInt(msg.sender.id) === {{ $authUser->id }} ? 'mine' : 'theirs'">
                         <div class="message-bubble" :class="parseInt(msg.sender.id) === {{ $authUser->id }} ? 'mine' : 'theirs'">
@@ -56,7 +79,7 @@
                         class="form-control"
                         placeholder="Write a message..."
                         rows="1"
-                        maxlength="5000"
+                        maxlength="30000"
                         x-model="body"
                         @keydown.enter.prevent.exact="sendMessage()"
                         @keydown.shift.enter.exact="body += '\n'"
@@ -79,18 +102,19 @@
 
 @push('scripts')
 <script>
-function chatApp() {
+function chatApp(initialMessagesRaw, encryptionMode) {
     return {
+        initialMessages: [],
         newMessages: [],
         body: '',
         sending: false,
+        loading: encryptionMode === 'e2ee',
 
-        init() {
-            console.debug('[Chat] Initializing chat for recipient {{ $recipient->id }}');
+        async init() {
 
             this.scrollToBottom();
 
-            // Auto-resize textarea on every body change (typing, Shift+Enter, paste, clear)
+            // Auto-resize textarea on every body change
             this.$watch('body', () => {
                 this.$nextTick(() => {
                     const ta = this.$refs.textarea;
@@ -100,7 +124,7 @@ function chatApp() {
                 });
             });
 
-            // Presence: apply initial state + listen for changes
+            // Presence
             const recipientId = {{ $recipient->id }};
             const ev = window.__app?.presenceEvents ?? {};
             this.updateRecipientStatus(window.__app?.onlineIds?.has(recipientId) ?? false);
@@ -114,28 +138,92 @@ function chatApp() {
                 if (parseInt(e.detail.id) === recipientId) this.updateRecipientStatus(false);
             });
 
+            // Decrypt initial messages after E2EE is ready
+            if (encryptionMode === 'e2ee') {
+                await this.waitForE2EE();
+                this.initialMessages = await this.decryptMessages(initialMessagesRaw);
+            } else {
+                this.initialMessages = initialMessagesRaw;
+            }
+
+            this.loading = false;
+            this.$nextTick(() => this.scrollToBottom());
+
             if (!window.Echo) {
                 console.warn('[Chat] Echo not initialized — real-time disabled');
                 return;
             }
 
             window.Echo.private('messages.{{ $authUser->id }}')
-                .listen('.message.sent', (event) => {
-                    console.debug('[Chat] Received message.sent event', event);
+                .listen('.message.sent', async (event) => {
 
                     if (parseInt(event.sender.id) === recipientId) {
-                        this.newMessages.push(event);
-                        this.removeEmptyState();
+                        if (event.message.is_encrypted && encryptionMode === 'e2ee') {
+                            const decrypted = await this.decryptSingleMessage(event);
+                            if (decrypted) this.newMessages.push(decrypted);
+                        } else {
+                            this.newMessages.push(event);
+                        }
+
                         this.$nextTick(() => this.scrollToBottom());
 
-                        // Mark as read immediately — user is viewing this chat
                         fetch('{{ route('messages.read', $recipient) }}', {
                             method: 'POST',
                             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
                         });
                     }
                 });
+        },
 
+        waitForE2EE() {
+            return new Promise((resolve) => {
+                if (window.__app?.e2ee?.ready) return resolve();
+                document.addEventListener('e2ee:ready', resolve, { once: true });
+            });
+        },
+
+        async getAESKeyForRecipient() {
+            const e2ee = window.__app?.e2ee;
+            if (!e2ee?.ready || !e2ee.privateKey) return null;
+
+            const recipientPubKeyBase64 = await e2ee.getPublicKey({{ $recipient->id }});
+            const recipientPubKey = await window.__app.crypto.importPublicKey(recipientPubKeyBase64);
+            return window.__app.crypto.deriveAESKey(e2ee.privateKey, recipientPubKey);
+        },
+
+        async decryptMessages(messages) {
+            let aesKey = null;
+            try {
+                aesKey = await this.getAESKeyForRecipient();
+            } catch (err) {
+                console.error('[Chat] Could not derive AES key for initial messages', err);
+                return messages;
+            }
+
+            return Promise.all(messages.map(async (msg) => {
+                if (!msg.message.is_encrypted || !aesKey) return msg;
+                try {
+                    const payload = JSON.parse(msg.message.body);
+                    const plain = await window.__app.crypto.decryptMessage(aesKey, payload.ciphertext, payload.iv);
+                    return { ...msg, message: { ...msg.message, body: plain } };
+                } catch (err) {
+                    console.error('[Chat] Failed to decrypt message', msg.message.id, err);
+                    return { ...msg, message: { ...msg.message, body: '[Decryption failed]' } };
+                }
+            }));
+        },
+
+        async decryptSingleMessage(event) {
+            try {
+                const aesKey = await this.getAESKeyForRecipient();
+                if (!aesKey) return event;
+                const payload = JSON.parse(event.message.body);
+                const plain = await window.__app.crypto.decryptMessage(aesKey, payload.ciphertext, payload.iv);
+                return { ...event, message: { ...event.message, body: plain } };
+            } catch (err) {
+                console.error('[Chat] Failed to decrypt incoming message', err);
+                return { ...event, message: { ...event.message, body: '[Decryption failed]' } };
+            }
         },
 
         async sendMessage() {
@@ -145,14 +233,26 @@ function chatApp() {
             this.sending = true;
 
             try {
+                let bodyToSend = text;
+
+                if (encryptionMode === 'e2ee') {
+                    const aesKey = await this.getAESKeyForRecipient();
+                    if (!aesKey) {
+                        console.error('[Chat] Cannot encrypt — AES key unavailable');
+                        return;
+                    }
+                    const { ciphertext, iv } = await window.__app.crypto.encryptMessage(aesKey, text);
+                    bodyToSend = JSON.stringify({ ciphertext, iv });
+                }
+
                 const response = await fetch('{{ route('messages.store', $recipient) }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        'Accept': 'application/json',
+                        Accept: 'application/json',
                     },
-                    body: JSON.stringify({ body: text }),
+                    body: JSON.stringify({ body: bodyToSend }),
                 });
 
                 if (!response.ok) {
@@ -164,11 +264,10 @@ function chatApp() {
                 const data = await response.json();
 
                 this.newMessages.push({
-                    message: { id: data.id, body: text, created_at: data.created_at },
+                    message: { id: data.id, body: text, created_at: data.created_at, is_encrypted: data.is_encrypted },
                     sender: { id: {{ $authUser->id }}, name: '{{ $authUser->name }}' },
                 });
 
-                this.removeEmptyState();
                 this.body = '';
                 this.$nextTick(() => this.scrollToBottom());
             } catch (err) {
@@ -193,11 +292,6 @@ function chatApp() {
             }
         },
 
-        removeEmptyState() {
-            const el = document.getElementById('empty-state');
-            if (el) el.remove();
-        },
-
         formatTime(isoString) {
             if (!isoString) return '';
             const d = new Date(isoString);
@@ -207,5 +301,7 @@ function chatApp() {
         nl2br: (text) => window.__app.nl2br(text),
     };
 }
+
+window.chatApp = chatApp;
 </script>
 @endpush

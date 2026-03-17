@@ -50,6 +50,7 @@ class MessageSent implements ShouldBroadcast
                 'id' => $this->message->id,
                 'body' => $this->message->body,
                 'created_at' => $this->message->created_at?->toIso8601String(),
+                'is_encrypted' => $this->message->is_encrypted,
             ],
             'sender' => [
                 'id' => $this->message->sender_id,

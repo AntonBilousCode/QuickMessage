@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\KeyController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserSettingsController;
 use Illuminate\Support\Facades\Route;
 
 // Root redirect
@@ -24,6 +26,15 @@ Route::middleware('auth')->group(function (): void {
 
     // Users
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
+
+    // Keys (E2EE)
+    Route::post('/keys', [KeyController::class, 'store'])->name('keys.store')->middleware('throttle:60,1');
+    Route::get('/keys/me', [KeyController::class, 'showOwn'])->name('keys.me')->middleware('throttle:120,1');
+    Route::get('/keys/{user}', [KeyController::class, 'showPublic'])->name('keys.show')->middleware('throttle:120,1');
+
+    // Settings
+    Route::get('/settings', [UserSettingsController::class, 'index'])->name('settings.index');
+    Route::post('/settings/e2ee', [UserSettingsController::class, 'updateE2ee'])->name('settings.e2ee')->middleware('throttle:30,1');
 
     // Messages
     Route::get('/messages/unread', [MessageController::class, 'unread'])->name('messages.unread');

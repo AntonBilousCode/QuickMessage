@@ -14,7 +14,7 @@ class MessageRepository implements MessageRepositoryInterface
     ) {}
 
     /**
-     * @param  array{sender_id: int, receiver_id: int, body: string}  $data
+     * @param  array{sender_id: int, receiver_id: int, body: string, is_encrypted?: bool}  $data
      */
     public function create(array $data): Message
     {

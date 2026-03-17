@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register — QuickMessage</title>
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/auth-crypto.js'])
 </head>
 <body>
     <div class="auth-wrapper">
@@ -23,7 +23,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('register') }}">
+            <form id="register-form" method="POST" action="{{ route('register') }}">
                 @csrf
 
                 <div class="form-group">
