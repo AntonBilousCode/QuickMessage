@@ -14,12 +14,13 @@ class MessageService implements MessageServiceInterface
         private readonly MessageRepositoryInterface $messageRepository,
     ) {}
 
-    public function send(int $senderId, int $receiverId, string $body): Message
+    public function send(int $senderId, int $receiverId, string $body, bool $isEncrypted = false): Message
     {
         $message = $this->messageRepository->create([
             'sender_id' => $senderId,
             'receiver_id' => $receiverId,
             'body' => $body,
+            'is_encrypted' => $isEncrypted,
         ]);
 
         event(new MessageSent($message));

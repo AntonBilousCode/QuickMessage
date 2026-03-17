@@ -17,11 +17,15 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'public_key',
+        'encrypted_private_key',
+        'e2ee_enabled',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'encrypted_private_key',
     ];
 
     /**
@@ -32,7 +36,20 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'e2ee_enabled' => 'boolean',
         ];
+    }
+
+    /**
+     * Returns true when both this user and $other have E2EE enabled with a key pair uploaded,
+     * meaning messages between them can be end-to-end encrypted.
+     */
+    public function canEncryptWith(self $other): bool
+    {
+        return $this->e2ee_enabled
+            && $other->e2ee_enabled
+            && $this->public_key !== null
+            && $other->public_key !== null;
     }
 
     /**

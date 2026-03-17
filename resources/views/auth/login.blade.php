@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Login — QuickMessage</title>
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/auth-crypto.js'])
 </head>
 <body>
     <div class="auth-wrapper">
@@ -24,7 +24,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('login') }}">
+            <form id="login-form" method="POST" action="{{ route('login') }}">
                 @csrf
 
                 <div class="form-group">

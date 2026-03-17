@@ -90,7 +90,7 @@ class SendMessageTest extends TestCase
         $recipient = User::factory()->create();
 
         $response = $this->actingAs($sender)->post("/messages/{$recipient->id}", [
-            'body' => str_repeat('a', 5001),
+            'body' => str_repeat('a', 30001),
         ]);
 
         $response->assertSessionHasErrors(['body']);

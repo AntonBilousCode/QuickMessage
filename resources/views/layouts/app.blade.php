@@ -12,6 +12,7 @@
         <a href="{{ route('users.index') }}" class="brand">⚡ QuickMessage</a>
         <div class="nav-user">
             <span>{{ auth()->user()->name }}</span>
+            <a href="{{ route('settings.index') }}" class="btn btn-sm btn-secondary">Settings</a>
             <form method="POST" action="{{ route('logout') }}" style="margin:0">
                 @csrf
                 <button type="submit" class="btn btn-sm btn-secondary">Logout</button>
@@ -24,6 +25,15 @@
     <main>
         @yield('content')
     </main>
+
+    @auth
+    <script>
+    window.__app = window.__app ?? {};
+    window.__app.e2eeEnabled = {{ auth()->user()->e2ee_enabled ? 'true' : 'false' }};
+    window.__app.authUserId  = {{ auth()->id() }};
+    </script>
+    @vite(['resources/js/key-init.js'])
+    @endauth
 
     @stack('scripts')
 
