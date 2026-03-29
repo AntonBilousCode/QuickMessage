@@ -8,14 +8,14 @@ use Illuminate\Database\Eloquent\Collection;
 interface MessageRepositoryInterface
 {
     /**
-     * Create and persist a new message.
+     * Create and persist a new message
      *
-     * @param  array{sender_id: int, receiver_id: int, body: string}  $data
+     * @param  array{sender_id: int, receiver_id: int, body: string, is_encrypted?: bool}  $data
      */
     public function create(array $data): Message;
 
     /**
-     * Find all unread messages for a given user (offline missed messages).
+     * Find all unread messages for a given user (offline missed messages)
      *
      * @return Collection<int, Message>
      */
@@ -29,7 +29,7 @@ interface MessageRepositoryInterface
     public function markAsRead(int $receiverId, ?int $senderId = null): int;
 
     /**
-     * Get full conversation between two users, ordered by creation time.
+     * Get full conversation between two users, ordered by creation time
      *
      * @return Collection<int, Message>
      */

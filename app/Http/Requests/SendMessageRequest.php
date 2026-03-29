@@ -23,7 +23,7 @@ class SendMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'body' => ['required', 'string', 'min:1', 'max:5000'],
+            'body' => ['required', 'string', 'min:1', 'max:30000'],
         ];
     }
 }

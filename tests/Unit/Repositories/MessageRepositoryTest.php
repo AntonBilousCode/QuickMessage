@@ -141,4 +141,43 @@ class MessageRepositoryTest extends TestCase
 
         $this->assertCount(1, $conversation);
     }
+
+    public function test_get_unread_counts_by_sender_groups_correctly(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $charlie = User::factory()->create();
+
+        Message::factory()->count(3)->unread()->create([
+            'sender_id' => $bob->id,
+            'receiver_id' => $alice->id,
+        ]);
+
+        Message::factory()->count(2)->unread()->create([
+            'sender_id' => $charlie->id,
+            'receiver_id' => $alice->id,
+        ]);
+
+        // Already-read message — must not appear in counts
+        Message::factory()->create([
+            'sender_id' => $bob->id,
+            'receiver_id' => $alice->id,
+            'read_at' => now(),
+        ]);
+
+        $counts = $this->repository->getUnreadCountsBySender($alice->id);
+
+        $this->assertCount(2, $counts);
+        $this->assertEquals(3, $counts[$bob->id]);
+        $this->assertEquals(2, $counts[$charlie->id]);
+    }
+
+    public function test_get_unread_counts_by_sender_returns_empty_when_none(): void
+    {
+        $alice = User::factory()->create();
+
+        $counts = $this->repository->getUnreadCountsBySender($alice->id);
+
+        $this->assertEmpty($counts);
+    }
 }

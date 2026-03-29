@@ -39,7 +39,7 @@ class MessageServiceTest extends TestCase
         $this->repository
             ->shouldReceive('create')
             ->once()
-            ->with(['sender_id' => 1, 'receiver_id' => 2, 'body' => 'Hello!'])
+            ->with(['sender_id' => 1, 'receiver_id' => 2, 'body' => 'Hello!', 'is_encrypted' => false])
             ->andReturn($message);
 
         $result = $this->service->send(1, 2, 'Hello!');

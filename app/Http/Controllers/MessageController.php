@@ -17,7 +17,7 @@ class MessageController extends Controller
     ) {}
 
     /**
-     * Show conversation with the given user and mark received messages as read.
+     * Show conversation with the given user and mark received messages as read
      */
     public function index(Request $request, User $user): View|RedirectResponse
     {
@@ -31,28 +31,37 @@ class MessageController extends Controller
 
         $messages = $this->messageService->getConversation($authUser->id, $user->id);
 
+        $encryptionMode = $authUser->canEncryptWith($user) ? 'e2ee' : 'standard';
+
         return view('messages.show', [
             'recipient' => $user,
             'messages' => $messages,
             'authUser' => $authUser,
+            'encryptionMode' => $encryptionMode,
         ]);
     }
 
     /**
-     * Store a new message and broadcast it via WebSocket.
+     * Store a new message and broadcast it via WebSocket
      */
     public function store(SendMessageRequest $request, User $user): JsonResponse|RedirectResponse
     {
+        $sender = $request->user();
+
+        $isEncrypted = $sender->canEncryptWith($user);
+
         $message = $this->messageService->send(
-            senderId: $request->user()->id,
+            senderId: $sender->id,
             receiverId: $user->id,
             body: $request->body,
+            isEncrypted: $isEncrypted,
         );
 
         if ($request->expectsJson()) {
             return response()->json([
                 'id' => $message->id,
                 'created_at' => $message->created_at->toIso8601String(),
+                'is_encrypted' => $message->is_encrypted,
             ]);
         }
 
@@ -60,7 +69,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Mark all messages from the given sender as read for the authenticated user.
+     * Mark all messages from the given sender as read for the authenticated user
      */
     public function markRead(Request $request, User $user): JsonResponse
     {
@@ -70,7 +79,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Return the count of unread messages for the authenticated user.
+     * Return the count of unread messages for the authenticated user
      */
     public function unread(Request $request): JsonResponse
     {

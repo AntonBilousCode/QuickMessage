@@ -10,8 +10,9 @@ interface MessageServiceInterface
     /**
      * Send a message from one user to another.
      * Persists to DB and dispatches the MessageSent broadcast event.
+     * Pass $isEncrypted=true when the body is an E2EE ciphertext.
      */
-    public function send(int $senderId, int $receiverId, string $body): Message;
+    public function send(int $senderId, int $receiverId, string $body, bool $isEncrypted = false): Message;
 
     /**
      * Get all unread messages for the given user (missed while offline).

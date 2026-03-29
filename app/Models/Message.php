@@ -17,6 +17,7 @@ class Message extends Model
         'sender_id',
         'receiver_id',
         'body',
+        'is_encrypted',
         'read_at',
     ];
 
@@ -27,6 +28,7 @@ class Message extends Model
     {
         return [
             'read_at' => 'datetime',
+            'is_encrypted' => 'boolean',
         ];
     }
 
