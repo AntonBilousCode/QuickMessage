@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Contracts\Repositories\MessageRepositoryInterface;
 use App\Contracts\Services\MessageServiceInterface;
 use App\Events\MessageSent;
+use App\Exceptions\SelfMessageException;
 use App\Models\Message;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -16,6 +17,10 @@ class MessageService implements MessageServiceInterface
 
     public function send(int $senderId, int $receiverId, string $body, bool $isEncrypted = false): Message
     {
+        if ($senderId === $receiverId) {
+            throw new SelfMessageException;
+        }
+
         $message = $this->messageRepository->create([
             'sender_id' => $senderId,
             'receiver_id' => $receiverId,

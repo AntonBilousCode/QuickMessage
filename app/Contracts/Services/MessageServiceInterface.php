@@ -2,6 +2,7 @@
 
 namespace App\Contracts\Services;
 
+use App\Exceptions\SelfMessageException;
 use App\Models\Message;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -11,6 +12,8 @@ interface MessageServiceInterface
      * Send a message from one user to another.
      * Persists to DB and dispatches the MessageSent broadcast event.
      * Pass $isEncrypted=true when the body is an E2EE ciphertext.
+     *
+     * @throws SelfMessageException when $senderId equals $receiverId
      */
     public function send(int $senderId, int $receiverId, string $body, bool $isEncrypted = false): Message;
 
