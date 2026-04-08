@@ -71,6 +71,18 @@ class SendMessageTest extends TestCase
         $this->assertDatabaseCount('messages', 0);
     }
 
+    public function test_user_cannot_send_message_to_themselves(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post("/messages/{$user->id}", [
+            'body' => 'Talking to myself',
+        ]);
+
+        $response->assertForbidden();
+        $this->assertDatabaseCount('messages', 0);
+    }
+
     public function test_empty_message_body_is_rejected(): void
     {
         $sender = User::factory()->create();

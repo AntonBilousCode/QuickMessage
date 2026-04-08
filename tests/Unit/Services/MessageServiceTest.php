@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Contracts\Repositories\MessageRepositoryInterface;
 use App\Events\MessageSent;
+use App\Exceptions\SelfMessageException;
 use App\Models\Message;
 use App\Services\MessageService;
 use Illuminate\Database\Eloquent\Collection;
@@ -24,6 +25,15 @@ class MessageServiceTest extends TestCase
 
         $this->repository = Mockery::mock(MessageRepositoryInterface::class);
         $this->service = new MessageService($this->repository);
+    }
+
+    public function test_send_throws_when_sender_equals_receiver(): void
+    {
+        $this->repository->shouldNotReceive('create');
+
+        $this->expectException(SelfMessageException::class);
+
+        $this->service->send(1, 1, 'Hello!');
     }
 
     public function test_send_creates_message_and_dispatches_event(): void
